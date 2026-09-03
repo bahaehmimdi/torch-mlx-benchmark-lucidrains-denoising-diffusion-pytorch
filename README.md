@@ -1,3 +1,8 @@
+
+> ## ⚠️ Correction
+>
+> Ce dépôt contient des **gains « compilés » ~10×–15× qui ne sont pas reproductibles** et ont été retirés. Sur une baseline MPS propre et avec `mlx.compile` réellement foré à s'exécuter (entrées fraîches + `mx.eval`), **torch-mlx est en parité avec PyTorch MPS** et `mlx.compile` est une **régression** sur la couche torch-mlx. Voir `bench/README.md` du dépôt torch-mlx et `scripts/bench_status.tsv`.
+
 # lucidrains/denoising-diffusion-pytorch — Benchmark torch-mlx sur Mac
 
 Résultats de test de **torch-mlx** (API PyTorch basée sur le moteur **MLX**
@@ -5,9 +10,9 @@ d'Apple Silicon) appliqués à **lucidrains/denoising-diffusion-pytorch**.
 
 **Statut : OK — UViT + GaussianDiffusion (simple_diffusion.py) non modifiés, 671K params, forward + backward (143/143 gradients) + AdamW validés (5/5 pass). Écart d'init contourné (voir gaps).**
 
-**torch-mlx** est une reimplémentation de l'API PyTorch basée sur le moteur **MLX d'Apple Silicon**. En testant des modèles réels non modifiés, **torch-mlx (mode compilé) a dépassé PyTorch MPS** sur la majorité des workloads GEMM/conv (transformers, ResNet, DCGAN, VAE). Exemples de gains vs PyTorch CPU : ResNet18 ~10×, ResNet50 ~15×, DCGAN ~15×, minGPT ~3.3×, nanoGPT ~2×, LSTM ~1.7×, VAE ~2.9×.
+**torch-mlx** est une reimplementation de l'API PyTorch basée sur le moteur **MLX d'Apple Silicon**. Sur les modèles non modifiés mesurés (voir `bench/` + `scripts/bench_status.tsv` du dépôt torch-mlx), torch-mlx est en **parité** avec PyTorch MPS (rapport MLX/MPS ~0,1×–0,96×). Les gains « compilés » ~10×–15× précédemment publiés ne sont **pas reproductibles** et ont été corrigés.
 
-Un point central : **`mlx.core.compile` en mode lazy / compilé** attend de connaître toute la séquence d'opérations avant de lancer les calculs. C'est particulièrement important pour les **opérations de batching** : au lieu d'exécuter chaque petite opération GPU séparément (avec son overhead de dispatch/lancement à chaque itération), le mode compilé lazy construit d'abord le graphe d'opérations de tout le batch, le fusionne en kernels optimisés, puis l'exécute d'un seul coup. Pour un batch de N échantillons, l'overhead est amorti une seule fois au lieu de N fois — d'où des gains typiques de plusieurs fois (jusqu'à ~15×) dès que le travail par étape est suffisant.
+**`mlx.core.compile`** (mode lazy / compilé) ne fusionne les opérations qu'au niveau du graphe MLX natif. Sur la couche d'adaptation torch-mlx, rappelé via `Function.apply`, le compilateur voit des fonctions opaques : la compilation est mesurée comme une **régression** (~1,5× à ~150× plus lente que l'eager MLX), pas une accélération. Les « gains compilés » parfois publiés provenaient de la constante-folding (entrées identiques à chaque itération, graphe lazy jamais forcé).
 
 ## Compatibilité trouvée
 lucidrains/denoising-diffusion-pytorch (~50K stars) : diffusion denoising (UViT/GaussianDiffusion).
